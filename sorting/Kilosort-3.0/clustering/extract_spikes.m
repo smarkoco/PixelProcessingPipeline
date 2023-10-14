@@ -34,7 +34,7 @@ function [rez, st3, tF] = extract_spikes(rez)
     ops = rez.ops;
 
     spkTh = ops.Th(1);
-    sig = 100; % set microns as hardcoded BASE gaussian kernel radius for the nearest channels
+    sig = 1000; % set microns as hardcoded BASE gaussian kernel radius for the nearest channels
     dNearActiveSite = median(diff(unique(rez.yc)));
 
     [ycup, xcup] = meshgrid(ops.yup, ops.xup); % define the 2x upsampled grid
@@ -60,8 +60,12 @@ function [rez, st3, tF] = extract_spikes(rez)
     nsizes = 5;
     v2 = gpuArray.zeros(nsizes, size(dist, 2), 'single');
     for k = 1:nsizes
-        v2(k, :) = sum(exp(- 2 * dist .^ 2 / (sig * k) ^ 2), 1);
+        v2(k, :) = sum(exp(- 2 * dist .^ 2 / (sig * k) ^ 2), 1); % gaussian kernel of width sig * k
     end
+    
+    % ^ replace range of gaussian kernels with a single flat kernel
+    % size of v2 is same as number of upsampled channels (nchan*2-1)
+    % v2 = gpuArray.ones(nsizes, size(dist, 2), 'single'); 
 
     NchanUp = size(iC, 2);
 

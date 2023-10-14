@@ -10,7 +10,8 @@
     enableStableMode = true;
     
     % mexcuda -largeArrayDims spikedetector3.cu
-    mexcuda -largeArrayDims spikedetector3PC.cu
+    % mexcuda -largeArrayDims spikedetector3PC.cu
+    mexcuda('-largeArrayDims', 'spikedetector3PC.cu', 'NVCCFLAGS=-gencode=arch=compute_80,code=sm_80')
     % mexcuda -largeArrayDims mexThSpkPC.cu
     % mexcuda -largeArrayDims mexGetSpikes2.cu
     
@@ -21,14 +22,16 @@
         % be specified. This version will run ~2X slower than the
         % non deterministic version.
         % mexcuda -largeArrayDims -dynamic -DENABLE_STABLEMODE mexMPnu8.cu
-        mexcuda -largeArrayDims -dynamic -DENABLE_STABLEMODE mexMPnu8_pcTight_czuba.cu
+        mexcuda('-largeArrayDims', '-dynamic', '-DENABLE_STABLEMODE', 'mexMPnu8_pcTight_czuba.cu', 'NVCCFLAGS=-gencode=arch=compute_80,code=sm_80')
+        % mexcuda('-largeArrayDims', '-dynamic', '-DENABLE_STABLEMODE', 'mexMPnu8.cu', 'NVCCFLAGS=-gencode=arch=compute_80,code=sm_80')
     else
         % mexcuda -largeArrayDims mexMPnu8.cu
         mexcuda -largeArrayDims mexMPnu8_pcTight_czuba.cu
     end
 
     % mexcuda -largeArrayDims mexSVDsmall2.cu
-    mexcuda -largeArrayDims mexWtW2.cu
+    % mexcuda -largeArrayDims mexWtW2.cu
+    mexcuda('-largeArrayDims', 'mexWtW2.cu', 'NVCCFLAGS=-gencode=arch=compute_80,code=sm_80')
     % mexcuda -largeArrayDims mexFilterPCs.cu
     % mexcuda -largeArrayDims mexClustering2.cu
     % mexcuda -largeArrayDims mexDistances2.cu

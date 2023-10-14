@@ -2,6 +2,9 @@ function [x, iclust, flag] = bimodal_pursuit(Xd, wroll, ss, rmin, nlow, retry, u
 
     dt = 1/1000;
     clp = Xd;
+    % if any(any(isnan(clp)))
+    %     clp = Xd;
+    % end
 
     mu_clp = mean(clp, 1);
     clp = clp - mu_clp;

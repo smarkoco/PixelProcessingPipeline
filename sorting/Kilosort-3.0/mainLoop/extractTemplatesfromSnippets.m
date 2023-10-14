@@ -57,15 +57,16 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
     dd = dd(:, 1:k);
     % window definition
     % window = tukeywin(size(wTEMP, 1), 0.9);
-    sigma_time = 0.125; % ms of the gaussian kernel to focus penalty on central region of waveforms
+    sigma_time = 1.675; % ms of the gaussian kernel to focus penalty on central region of waveforms
     sigma = ops.fs * sigma_time / 1000; % samples
     gaussian_window = gausswin(size(dd, 1), (size(dd, 1) - 1) / (2 * sigma));
     zeros_for_tukey = zeros(size(dd, 1), 1);
-    percent_tukey_coverage = 80;
+    percent_tukey_coverage = 50;
     partial_tukey_window = tukeywin(ceil(size(dd, 1) * percent_tukey_coverage / 100), 0.5);
     % put middle of partial tukey at the center of zeros_for_tukey
     zeros_for_tukey(ceil(size(dd, 1) / 2) - ceil(size(partial_tukey_window, 1) / 2) + 1:ceil(size(dd, 1) / 2) + floor(size(partial_tukey_window, 1) / 2)) = partial_tukey_window;
     tukey_window = zeros_for_tukey;
+    % tukey_window_full_wide = tukeywin(size(dd, 1), 0.5);
 
     dd_windowed = dd .* tukey_window;
     dd_cpu = double(gather(dd_windowed));
@@ -101,10 +102,10 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
         % if it still fails, halve it again, until it doesn't fail
         % if all else fails, just run it sequentially
         try
-            [cluster_id, ~, ~, Dist_from_K] = kmeans(dd_pca', nPCs, 'Distance', 'sqeuclidean', 'MaxIter', 10000, 'Replicates', num_jobs, 'Display', 'final', 'Options', options);
+            [cluster_id, ~, ~, Dist_from_K] = kmeans(dd_pca', nPCs, 'Distance', 'sqeuclidean', 'MaxIter', 100000, 'Replicates', num_jobs, 'Display', 'final', 'Options', options);
         catch
             disp('k-means failed in parallel, running sequentially instead')
-            [cluster_id, ~, ~, Dist_from_K] = kmeans(dd_pca', nPCs, 'Distance', 'sqeuclidean', 'MaxIter', 10000, 'Replicates', num_jobs, 'Display', 'final');
+            [cluster_id, ~, ~, Dist_from_K] = kmeans(dd_pca', nPCs, 'Distance', 'sqeuclidean', 'MaxIter', 100000, 'Replicates', num_jobs, 'Display', 'final');
         end
         spikes = gpuArray(nan(size(dd)));
         number_of_spikes_to_use = nan(nPCs, 1);
@@ -378,14 +379,19 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
 
     % tukey it
     wTEMP_tukeyed = wTEMP .* tukey_window;
+    wTEMP_gaussed = wTEMP .* gaussian_window;
     if ops.fig % PLOTTING
         figure(3); hold on;
         for i = 1:nPCs
             plot(wTEMP(:, i) + i * scale, 'LineWidth', 2, 'Color', cmap(i, :));
             plot(wTEMP_tukeyed(:, i) + i * scale, 'r');
+            % plot it orange
+            plot(wTEMP_gaussed(:, i) + i * scale, 'Color', [1, 0.5, 0]);
             if i == nPCs
                 % show tukey
                 plot(i * scale + 0.5 * tukey_window, 'c');
+                % show gaussian
+                plot(i * scale + 0.5 * gaussian_window, 'g');
             end
         end
         % set aspect ratio to 3, 1
@@ -396,7 +402,7 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
     % if k-means was used, use the k-means isolated spikes for the PCA space
     if use_kmeans
         % use windowing to focus on the central part of the waveforms for correlation calculation
-        spikes_windowed = spikes .* tukey_window;
+        spikes_windowed = spikes .* gaussian_window;
         [U, ~, ~] = svdecon(spikes_windowed);
         wPCA = gpuArray(single(U(:, 1:nPCs))); % take as many as needed
     end

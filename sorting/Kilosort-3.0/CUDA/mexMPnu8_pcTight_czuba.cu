@@ -11,6 +11,7 @@
  %   - this is distinct from changing range of nt0, because its still important for spike subtraction
  *     to include the tails of each waveform...we just want the projections computed on a tighter,
  *     more meaningful range of timepoints w/in the waveform
+ * - Make all static volatile shared arrays into dynamic shared arrays
  *
  * Compile individually with:
  *      mexcuda -largeArrayDims -dynamic -DENABLE_STABLEMODE mexMPnu8_pcTight_czuba.cu
@@ -45,6 +46,7 @@ __global__ void	spaceFilter(const double *Params, const float *data, const float
 // and time (in non-synchronized portion).
   volatile __shared__ float  sU[32*NrankMax];
   volatile __shared__ int iU[32];
+
   float x;
   int tid, bid, i,k, Nrank, Nchan, NT, Nfilt, NchanU;
 
@@ -199,9 +201,15 @@ __global__ void	spaceFilterUpdate_v2(const double *Params, const double *data, c
 
 //////////////////////////////////////////////////////////////////////////////////////////
 __global__ void	timeFilter(const double *Params, const float *data, const float *W,float *conv_sig){
-  volatile __shared__ float  sW2[61*NrankMax], sW[61*NrankMax], sdata[(Nthreads+61)*NrankMax];
+//   volatile __shared__ float  sW2[201*NrankMax], sW[201*NrankMax], sdata[(Nthreads+201)*NrankMax];
+// dynamic shared array here to allow larger shared memory allocation
+  extern __shared__ float timeFilter_array[];
+  float* sW2 = (float*)timeFilter_array;
+  float* sW = (float*)&sW2[201*NrankMax];
+  float* sdata = (float*)&sW[201*NrankMax];
+
   float x;
-  int tid, tid0, bid, i, nid, Nrank, NT, Nfilt, nt0, irank;
+  int tid, tid0, bid, t, nid, Nrank, NT, Nfilt, nt0, irank;
 
     tid   = threadIdx.x;
     bid   = blockIdx.x;
@@ -233,18 +241,20 @@ __global__ void	timeFilter(const double *Params, const float *data, const float 
         }
 
         #pragma unroll 3
-        for(nid=0;nid<Nrank;nid++){
+        for (nid=0;nid<Nrank;nid++){
             sdata[tid + nt0 + nid*(Nthreads+nt0)] = data[nt0 + tid0 + tid + NT*(bid + nid*Nfilt)];
 	    }
 	    __syncthreads();
 
 	    x = 0.0f;
-        for(nid=0;nid<Nrank;nid++){
+        for (nid=0;nid<Nrank;nid++){
             volatile float *pSW = &sW[nid*nt0];
             volatile float *pSD = &sdata[tid + nid*(Nthreads+nt0)];
  		    #pragma unroll 4
-            for(i=6;i<nt0-15;i++)
-                x += *pSW++ * *pSD++;
+            // for (t=nt0/2;t<nt0-nt0/2+1;t++) // when nt0=201, t = 67:134
+            for (t=0;t<nt0;t++)
+                // window the data with a Gaussian of std=nt0/4
+                x += *pSW++ * *pSD++ * expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/16.));
 	    }
         conv_sig[tid0  + tid + NT*bid] = x;
 
@@ -257,7 +267,7 @@ __global__ void	timeFilter(const double *Params, const float *data, const float 
 __global__ void	timeFilterUpdate(const double *Params, const float *data, const float *W,
         const bool *UtU, float *conv_sig, const int *st, const int *id, const int *counter){
 
-  volatile __shared__ float  sW[61*NrankMax], sW2[61*NrankMax];
+  volatile __shared__ float  sW[201*NrankMax], sW2[201*NrankMax];
   float x;
   int tid, tid0, bid, t, k,ind, Nrank, NT, Nfilt, nt0;
 
@@ -285,8 +295,11 @@ __global__ void	timeFilterUpdate(const double *Params, const float *data, const 
             if (tid0>=0 && tid0<NT-nt0){
                 x = 0.0f;
                 for (k=0;k<Nrank;k++){
-                    for (t=6;t<nt0-15;t++)
-                        x += sW[t + k*nt0] * data[t + tid0 + NT*(bid + Nfilt*k)];
+                    // for (t=nt0/2;t<nt0-nt0/2+1;t++) // when nt0=201, t = 67:134
+                    for (t=0;t<nt0;t++)
+                    // window the data with a Gaussian of std=nt0/4
+                        x += sW[t + k*nt0] * data[t + tid0 + NT*(bid + Nfilt*k)] *
+                                expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/16.));
                 }
                 conv_sig[tid0 + NT*bid] = x;
             }
@@ -392,7 +405,7 @@ __global__ void	cleanup_spikes(const double *Params, const float *data,
         const float *mu, const float *err, const float *eloss, const int *ftype, int *st,
         int *id, float *x, float *y,  float *z, int *counter){
 
-  volatile __shared__ float sdata[Nthreads+2*61+1];
+  volatile __shared__ float sdata[Nthreads+2*201+1];
   float err0, Th;
   int lockout, indx, tid, bid, NT, tid0,  j, id0, t0;
   bool flag=0;
@@ -727,7 +740,7 @@ __global__ void	computePCfeatures(const double *Params, const int *counter,
         const float *W, const float *U, const float *mu, const int *iW, const int *iC,
         const float *wPCA, float *featPC){
 
-  volatile __shared__ float  sPCA[61 * NrankMax], sW[61 * NrankMax], sU[NchanMax * NrankMax];
+  volatile __shared__ float  sPCA[201 * NrankMax], sW[201 * NrankMax], sU[NchanMax * NrankMax];
   volatile __shared__ int iU[NchanMax];
 
   float X = 0.0f, Y = 0.0f;
@@ -763,8 +776,10 @@ __global__ void	computePCfeatures(const double *Params, const int *counter,
   Y = 0.0f;
   for (k =0; k<Nrank; k++){
       X = 0.0f;
-      for (t=6;t<nt0-15;t++)
-          X += sW[t + k*nt0] * sPCA[t + tidy * nt0];
+    //   for (t=nt0/2;t<nt0-nt0/2+1;t++) // when nt0=201, t = 67:134
+    for (t=0;t<nt0;t++)
+          // window the data with a Gaussian of std=nt0/4
+          X += sW[t + k*nt0] * sPCA[t + tidy * nt0] * expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/16.));
       Y += X * sU[tidx + k*NchanU];
   }
 
@@ -772,8 +787,11 @@ __global__ void	computePCfeatures(const double *Params, const int *counter,
   for(ind=0; ind<counter[0];ind++)
       if (id[ind]==bid){
           X = Y * x[ind]; // - mu[bid]);
-          for (t=6;t<nt0-15; t++)
-              X  += dataraw[st[ind] + t + NT * iU[tidx]] * sPCA[t + nt0*tidy];
+        //   for (t=nt0/2;t<nt0-nt0/2+1;t++) // when nt0=201, t = 67:134
+        for (t=0;t<nt0;t++)
+              // window the data with a Gaussian of std=nt0/4
+              X  += dataraw[st[ind] + t + NT * iU[tidx]] * sPCA[t + nt0*tidy] *
+                      expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/16.));
           featPC[tidx + tidy*NchanU + ind * NchanU*Nrank] = X;
       }
 }
@@ -832,6 +850,15 @@ __global__ void set_idx( unsigned int *idx, const unsigned int nitems ) {
 void mexFunction(int nlhs, mxArray *plhs[],
                  int nrhs, mxArray const *prhs[])
 {
+// only increase Shared Memory Size if needed, and the highest choice
+// should be according to the Compute Capability of your GPU
+//   int maxbytes = 232448; // 227 KiB, Compute Capability 9.0
+  int maxbytes = 166912; // 163 KiB, Compute Capability 8.0, 8.7
+//   int maxbytes = 101376; // 99 KiB, Compute Capability 8.6, 8.9
+//   int maxbytes = 65536; // 64 KiB, Compute Capability 7.5
+//   int maxbytes = 98304; // 96 KiB, Compute Capability 7.0, 7.2
+//   int maxbytes = 49152; // 48 KiB, Compute Capability 5.0-6.2
+  cudaFuncSetAttribute(timeFilter, cudaFuncAttributeMaxDynamicSharedMemorySize, maxbytes);
   /* Initialize the MathWorks GPU API. */
   mxInitGPU();
 
@@ -949,7 +976,8 @@ void mexFunction(int nlhs, mxArray *plhs[],
   spaceFilter<<<Nfilt, Nthreads>>>(d_Params, d_draw, d_U, d_iC, d_iW, d_data);
 
   // filter the data with the temporal templates
-  timeFilter<<<Nfilt, Nthreads>>>(d_Params, d_data, d_W, d_dout);
+  //   timeFilter<<<Nfilt, Nthreads>>>(d_Params, d_data, d_W, d_dout);
+  timeFilter<<<Nfilt, Nthreads, sizeof(float)*(201*NrankMax + 201*NrankMax + (Nthreads+201)*NrankMax)>>>(d_Params, d_data, d_W, d_dout);
 
   // compute the best filter
   bestFilter<<<NT/Nthreads,Nthreads>>>(d_Params, d_dout, d_mu, d_err, d_eloss, d_ftype);

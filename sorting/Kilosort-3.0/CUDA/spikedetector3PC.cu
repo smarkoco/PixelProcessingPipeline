@@ -17,12 +17,12 @@
 #include <iostream>
 using namespace std;
 
-const int  Nthreads = 1024,  NrankMax = 9, maxFR = 10000, nt0max=61, NchanMax = 17, nsizes = 5;
+const int  Nthreads = 1024,  NrankMax = 9, maxFR = 10000, nt0max=201, NchanMax = 17, nsizes = 1;
 
 
 //////////////////////////////////////////////////////////////////////////////////////////
 __global__ void	Conv1D(const double *Params, const float *data, const float *W, float *conv_sig){
-    volatile __shared__ float  sW[61*NrankMax], sdata[(Nthreads+61)];
+    volatile __shared__ float  sW[201*NrankMax], sdata[(Nthreads+201)];
     float y;
     int tid, tid0, bid, i, nid, Nrank, NT, nt0,  Nchan;
 
@@ -79,9 +79,11 @@ __global__ void  sumChannels(const double *Params, const float *data,
   sigma = (float) Params[9];
   
   if (tid<nsizes*NchanNear){
-      d2 = dist[tid/nsizes + NchanNear * bidy];        
+      d2 = dist[tid/nsizes + NchanNear * bidy];
       k = tid%nsizes;
       sA[tid] = expf( - (d2 * d2)/((1+k)*(1+k)*sigma*sigma));
+    // make sA just ones to remove Gaussian weighting of channels
+    //   sA[tid] = 1.0f;
   }
   __syncthreads();
   
@@ -142,7 +144,10 @@ __global__ void  spikePC(const double *Params, const float *data,
   
   a = 0.;
   for(j=0; j<nt0; j++)
-      a  +=  data[j + t0 +  NT * iChan] * wPCA[j + k * nt0];      
+    //   a  +=  data[j + t0 +  NT * iChan] * wPCA[j + k * nt0];      
+    // window the data with a gaussian window of sigma = nt0/4
+    a  +=  data[j + t0 +  NT * iChan] * wPCA[j + k * nt0] * expf( - (j-nt0/2)*(j-nt0/2)/(nt0*nt0/16.));
+      
   
   tid = k + Nrank * threadIdx.y;
   totThreads = blockDim.x * blockDim.y;
@@ -153,7 +158,7 @@ __global__ void  spikePC(const double *Params, const float *data,
 //////////////////////////////////////////////////////////////////////////////////////////
 __global__ void	max1D(const double *Params, const float *data, float *conv_sig){
     
-    volatile __shared__ float  sdata[Nthreads+61];
+    volatile __shared__ float  sdata[Nthreads+201];
     float y, spkTh;
     int tid, tid0, bid, i, NT, nt0, nt0min;
     

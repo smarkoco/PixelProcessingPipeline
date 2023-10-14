@@ -47,8 +47,8 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id)
     ops.nTEMP = ops.nPCs; % number of templates to use for spike detection
     ops.nEig = ops.nPCs; % rank of svd for templates, % keep same as nPCs to avoid error
     ops.NchanTOT = double(max(num_chans - length(brokenChan), ops.nEig));
-    ops.Th = [5 2]; % threshold crossings for pre-clustering (in PCA projection space)
-    ops.spkTh = -2; % spike threshold in standard deviations (-6 default) (used in isolated_peaks_new/buffered and spikedetector3PC.cu)
+    ops.Th = [2 1]; % threshold crossings for pre-clustering (in PCA projection space)
+    ops.spkTh = -6; % spike threshold in standard deviations (-6 default) (used in isolated_peaks_new/buffered and spikedetector3PC.cu)
     ops.nfilt_factor = 12; % max number of clusters per good channel in a batch (even temporary ones)
     ops.nblocks = 0;
     ops.nt0min = ceil(ops.nt0 / 2); % peak of template match will be this many points away from beginning
@@ -56,8 +56,8 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id)
     ops.nSkipCov = 1; % compute whitening matrix and prototype templates using every N-th batch
     ops.lam = 10; % amplitude penalty (0 means not used, 10 is average, 50 is a lot)
     ops.CAR = 0; % whether to perform CAR
-    ops.loc_range = [5 1]; % [timepoints channels], area to detect peaks; plus/minus for both time and channel. Doing abs() of data during peak isolation, so using 4 instead of default 5. Only 1 channel to avoid elimination of waves
-    ops.long_range = [ops.nt0min-1 1]; % [timepoints channels], range within to use only the largest peak
+    ops.loc_range = [5 4]; % [timepoints channels], area to detect peaks; plus/minus for both time and channel. Only 1 channel to avoid elimination of waves
+    ops.long_range = [ops.nt0min-1 6]; % [timepoints channels], range within to use only the largest peak
     ops.fig = 1; % whether to plot figures
     ops.recordings = recordings;
     ops.momentum = [20 400];
@@ -113,13 +113,13 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id)
         figure(8); hold on;
         plot(st3(:, 4), 'g.')
         for kSpatialDecay = 1:6
-            less_than_idx = find(st3(:, 4) < 6 * kSpatialDecay);
-            more_than_idx = find(st3(:, 4) >= 6 * (kSpatialDecay - 1));
+            less_than_idx = find(st3(:, 4) < ops.nPCs * kSpatialDecay);
+            more_than_idx = find(st3(:, 4) >= ops.nPCs * (kSpatialDecay - 1));
             idx = intersect(less_than_idx, more_than_idx);
-            bit_idx = bitand(st3(:, 4) < 6 * kSpatialDecay, st3(:, 4) >= 6 * (kSpatialDecay - 1));
+            bit_idx = bitand(st3(:, 4) < ops.nPCs * kSpatialDecay, st3(:, 4) >= ops.nPCs * (kSpatialDecay - 1));
             plot(idx, st3(bit_idx, 4), '.')
         end
-        title('Prototype templates for each spatial decay value (1:6:30) resulting in each best match spike ID')
+        title('Best prototype template match for each spike ID, colored by spatial decay value (1:9:30)')
         figure(9);
         plot(st3(:, 5), '.')
         title('Amplitude of template match for each spike ID (Duplicate of st3(:,3))')
@@ -138,7 +138,21 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id)
     end
     [rez, ~] = template_learning(rez, tF, st3);
     [rez, st3, tF] = trackAndSort(rez);
-    % keyboard
+    % % plot values in st3
+    % plot410 = figure(410);
+    % plot(st3(:, 1), '.')
+    % title('Spike times versus spike ID')
+    % plot411 = figure(411);
+    % plot(st3(:, 2), '.')
+    % title('Upsampled grid location of best template match spike ID')
+    % plot412 = figure(412);
+    % plot(st3(:, 3), '.')
+    % title('Amplitude of template match for each spike ID')
+    % plot413 = figure(413); hold on;
+    % plot(st3(:, 4), 'g.')
+
+
+    % % check results
     % plot_templates_on_raw_data_fast(rez, st3);
     rez = final_clustering(rez, tF, st3);
     rez = find_merges(rez, 1);

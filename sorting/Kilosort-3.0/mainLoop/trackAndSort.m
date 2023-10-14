@@ -163,7 +163,8 @@ function [rez, st3, fWpc] = trackAndSort(rez, varargin)
         % since some clusters have different number of spikes, we need to apply the
         % exp(pm) factor several times, and fexp is the resulting update factor
         % for each template
-        dWU1 = dWU1 + dWU0;
+        dWU_temp = dWU1 + dWU0;
+        dWU1 = dWU_temp;
         nsp = nsp + nsp0;
 
         % nsp just gets updated according to the fixed factor p1

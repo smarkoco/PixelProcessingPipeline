@@ -145,8 +145,8 @@ __global__ void  spikePC(const double *Params, const float *data,
   a = 0.;
   for(j=0; j<nt0; j++)
     //   a  +=  data[j + t0 +  NT * iChan] * wPCA[j + k * nt0];      
-    // window the data with a gaussian window of sigma = nt0/4
-    a  +=  data[j + t0 +  NT * iChan] * wPCA[j + k * nt0] * expf( - (j-nt0/2)*(j-nt0/2)/(nt0*nt0/16.));
+    // window the data with a gaussian window of sigma = nt0/8
+    a  +=  data[j + t0 +  NT * iChan] * wPCA[j + k * nt0]; // * expf( - (j-nt0/2)*(j-nt0/2)/(nt0*nt0/64.));
       
   
   tid = k + Nrank * threadIdx.y;

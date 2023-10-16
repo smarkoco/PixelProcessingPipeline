@@ -14,30 +14,33 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
 
     fid = fopen(ops.fproc, 'r'); % open the preprocessed data file
 
-    k = 0;
+    k = 0; % counter for the number of spikes
     dd = gpuArray.zeros(ops.nt0, 5e4, 'single'); % preallocate matrix to hold 1D spike snippets
-    if ops.fig % PLOTTING
-        figure(1); hold on;
-    end
     for ibatch = 1:nskip:Nbatch
-        offset = 2 * ops.Nchan * batchstart(ibatch);
-        fseek(fid, offset, 'bof');
-        dat = fread(fid, [ops.Nchan NT], '*int16');
-        dat = dat';
+        % offset = 2 * ops.Nchan * batchstart(ibatch);
+        % fseek(fid, offset, 'bof');
+        % dat = fread(fid, [ops.Nchan NT], '*int16');
+        % dat = dat';
 
-        % move data to GPU and scale it back to unit variance
-        dataRAW = gpuArray(dat);
-        dataRAW = single(dataRAW);
-        dataRAW = dataRAW / ops.scaleproc;
+        % % move data to GPU and scale it back to unit variance
+        % dataRAW = gpuArray(dat);
+        % dataRAW = single(dataRAW);
+        % dataRAW = dataRAW / ops.scaleproc;
+        dataRAW = get_batch(ops, ibatch);
 
         % find isolated spikes from each batch
-        [row, col] = isolated_peaks_buffered_czuba(-abs(dataRAW), ops);
+        [row, col] = isolated_peaks_buffered_czuba(-abs(dataRAW), ops, ibatch);
 
         % for each peak, get the voltage snippet from that channel
         clips = get_SpikeSample(dataRAW, row, col, ops, 0);
         c = sq(clips(:, :));
         if ops.fig == 1 % PLOTTING
-            plot(c)
+            figure(1); hold on;
+            % make opacity 0.5, and color by batch, and offset channels by 20
+            % cyan to magenta
+            for i = 1:size(c, 2)
+                plot(c(:, i) + 40 * (col(i) - 1), 'Color', [1 - ibatch / Nbatch, ibatch / Nbatch, 1, 0.25]);
+            end
         end
         if k + size(c, 2) > size(dd, 2)
             dd(:, 2 * size(dd, 2)) = 0;
@@ -52,13 +55,20 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
     fclose(fid);
     if ops.fig == 1 % PLOTTING
         title('local isolated spikes (1D voltage waveforms)');
+        % set aspect to be 2 tall and 1 wide
+        pbaspect([1 2 1])
+        xlim([0, ops.nt0])
     end
     % discard empty samples
     dd = dd(:, 1:k);
-    % window definition
-    % window = tukeywin(size(wTEMP, 1), 0.9);
-    sigma_time = 1.675; % ms of the gaussian kernel to focus penalty on central region of waveforms
-    sigma = ops.fs * sigma_time / 1000; % samples
+
+    %%% window definitions, use windows to focus on the central part of the waveforms
+    % use 1/8 of the template width as the sigma for the gaussian window, with int rounding
+    sigma_points = int16(ops.nt0 / 8); % points for the gaussian window
+    % sigma_time = 1.675; % ms of gaussian kernel
+    % sigma = ops.fs * sigma_time / 1000; % samples
+
+    sigma = sigma_points;
     gaussian_window = gausswin(size(dd, 1), (size(dd, 1) - 1) / (2 * sigma));
     zeros_for_tukey = zeros(size(dd, 1), 1);
     percent_tukey_coverage = 50;

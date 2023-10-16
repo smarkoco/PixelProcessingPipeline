@@ -54,7 +54,7 @@ function [rez, st3, fWpc] = trackAndSort(rez, varargin)
     % spike threshold for finding missed spikes in residuals
     % ops.spkTh = -6; % why am I overwriting this here?
 
-    batchstart = 0:NT:NT * nBatches;
+    % batchstart = 0:NT:NT * nBatches;
 
     % find the closest NchanNear channels, and the masks for those channels
     [iC, mask, C2C] = getClosestChannels(rez, sigmaMask, NchanNear);
@@ -116,12 +116,13 @@ function [rez, st3, fWpc] = trackAndSort(rez, varargin)
     for ibatch = 1:niter % loop over batches, in order determined by drift correction (stored in ibatch)
         k = iorder(ibatch); % k is the index of the batch in absolute terms
 
-        % loading a single batch (same as everywhere)
-        offset = 2 * ops.Nchan * batchstart(k);
-        fseek(fid, offset, 'bof');
-        dat = fread(fid, [ops.Nchan NT + ops.ntbuff], '*int16');
-        dat = dat';
-        dataRAW = single(gpuArray(dat)) / ops.scaleproc;
+        % % loading a single batch (same as everywhere)
+        % offset = 2 * ops.Nchan * batchstart(k);
+        % fseek(fid, offset, 'bof');
+        % dat = fread(fid, [ops.Nchan NT + ops.ntbuff], '*int16');
+        % dat = dat';
+        % dataRAW = single(gpuArray(dat)) / ops.scaleproc;
+        dataRAW = get_batch(rez.ops, k);
         Params(1) = size(dataRAW, 1);
 
         % decompose dWU by svd of time and space (via covariance matrix of 61 by 61 samples)

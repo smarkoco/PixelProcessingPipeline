@@ -48,7 +48,7 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id)
     ops.nEig = ops.nPCs; % rank of svd for templates, % keep same as nPCs to avoid error
     ops.NchanTOT = double(max(num_chans - length(brokenChan), ops.nEig));
     ops.Th = [2 1]; % threshold crossings for pre-clustering (in PCA projection space)
-    ops.spkTh = -6; % spike threshold in standard deviations (-6 default) (used in isolated_peaks_new/buffered and spikedetector3PC.cu)
+    ops.spkTh = [-1, -2, -4, -6, -8, -10]; % spike threshold in standard deviations (-6 default) (used in isolated_peaks_new/buffered and spikedetector3PC.cu)
     ops.nfilt_factor = 12; % max number of clusters per good channel in a batch (even temporary ones)
     ops.nblocks = 0;
     ops.nt0min = ceil(ops.nt0 / 2); % peak of template match will be this many points away from beginning
@@ -56,8 +56,8 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id)
     ops.nSkipCov = 1; % compute whitening matrix and prototype templates using every N-th batch
     ops.lam = 10; % amplitude penalty (0 means not used, 10 is average, 50 is a lot)
     ops.CAR = 0; % whether to perform CAR
-    ops.loc_range = [5 4]; % [timepoints channels], area to detect peaks; plus/minus for both time and channel. Only 1 channel to avoid elimination of waves
-    ops.long_range = [ops.nt0min-1 6]; % [timepoints channels], range within to use only the largest peak
+    ops.loc_range = [5 1]; % [timepoints channels], area to detect peaks; plus/minus for both time and channel. Only 1 channel to avoid elimination of waves
+    ops.long_range = [ops.nt0min-1 1]; % [timepoints channels], range within to use only the largest peak
     ops.fig = 1; % whether to plot figures
     ops.recordings = recordings;
     ops.momentum = [20 400];
@@ -135,6 +135,7 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id)
         xlabel('Spike Examples')
         ylabel('Principal Component Weight')
         %%% end plots
+        plot_templates_on_raw_data_fast(rez, st3);
     end
     [rez, ~] = template_learning(rez, tF, st3);
     [rez, st3, tF] = trackAndSort(rez);
@@ -153,7 +154,6 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id)
 
 
     % % check results
-    % plot_templates_on_raw_data_fast(rez, st3);
     rez = final_clustering(rez, tF, st3);
     rez = find_merges(rez, 1);
 

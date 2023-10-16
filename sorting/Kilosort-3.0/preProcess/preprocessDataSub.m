@@ -298,11 +298,7 @@ function rez = preprocessDataSub(ops)
         channelDelays = get_channel_delays(rez);
         rez.ops.channelDelays = channelDelays; % save channel delays to rez
         % figure(222); hold on;
-        % remove channel delays from proc.dat by seeking through the batches
-        % with ibatch*NT+max(channelDelays) and shifting each delayed channel backwards
-        % by the appropriate amount found in channelDelays
-        % this will effectively move some throwaway data to the end of all batches
-        % but now the spikes will be aligned in time across channels
+        % remove channel delays from proc.dat by circularly shifting each channel
         fidOff = fopen(ops.fproc, 'r+');
         if fidOff < 3
             error('Could not open %s for reading.', ops.fbinary);

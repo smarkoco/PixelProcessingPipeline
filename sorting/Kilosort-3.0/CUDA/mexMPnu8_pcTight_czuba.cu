@@ -253,8 +253,9 @@ __global__ void	timeFilter(const double *Params, const float *data, const float 
  		    #pragma unroll 4
             // for (t=nt0/2;t<nt0-nt0/2+1;t++) // when nt0=201, t = 67:134
             for (t=0;t<nt0;t++)
-                // window the data with a Gaussian of std=nt0/4
-                x += *pSW++ * *pSD++ * expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/16.));
+                // window the data with a Gaussian of std=nt0/8
+                x += *pSW++ * *pSD++
+                  // * expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/64.));
 	    }
         conv_sig[tid0  + tid + NT*bid] = x;
 
@@ -297,9 +298,9 @@ __global__ void	timeFilterUpdate(const double *Params, const float *data, const 
                 for (k=0;k<Nrank;k++){
                     // for (t=nt0/2;t<nt0-nt0/2+1;t++) // when nt0=201, t = 67:134
                     for (t=0;t<nt0;t++)
-                    // window the data with a Gaussian of std=nt0/4
-                        x += sW[t + k*nt0] * data[t + tid0 + NT*(bid + Nfilt*k)] *
-                                expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/16.));
+                    // window the data with a Gaussian of std=nt0/8
+                        x += sW[t + k*nt0] * data[t + tid0 + NT*(bid + Nfilt*k)] 
+                                // * expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/64.));
                 }
                 conv_sig[tid0 + NT*bid] = x;
             }
@@ -778,8 +779,8 @@ __global__ void	computePCfeatures(const double *Params, const int *counter,
       X = 0.0f;
     //   for (t=nt0/2;t<nt0-nt0/2+1;t++) // when nt0=201, t = 67:134
     for (t=0;t<nt0;t++)
-          // window the data with a Gaussian of std=nt0/4
-          X += sW[t + k*nt0] * sPCA[t + tidy * nt0] * expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/16.));
+          // window the data with a Gaussian of std=nt0/8
+          X += sW[t + k*nt0] * sPCA[t + tidy * nt0]   // * expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/64.));
       Y += X * sU[tidx + k*NchanU];
   }
 
@@ -789,9 +790,9 @@ __global__ void	computePCfeatures(const double *Params, const int *counter,
           X = Y * x[ind]; // - mu[bid]);
         //   for (t=nt0/2;t<nt0-nt0/2+1;t++) // when nt0=201, t = 67:134
         for (t=0;t<nt0;t++)
-              // window the data with a Gaussian of std=nt0/4
-              X  += dataraw[st[ind] + t + NT * iU[tidx]] * sPCA[t + nt0*tidy] *
-                      expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/16.));
+              // window the data with a Gaussian of std=nt0/8
+              X  += dataraw[st[ind] + t + NT * iU[tidx]] * sPCA[t + nt0*tidy]
+                      // * expf( - (t-nt0/2)*(t-nt0/2)/(nt0*nt0/64.));
           featPC[tidx + tidy*NchanU + ind * NchanU*Nrank] = X;
       }
 }

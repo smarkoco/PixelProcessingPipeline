@@ -5,7 +5,7 @@ function plot_templates_on_raw_data_fast(rez, st3)
     Nbatch = rez.temp.Nbatch;
     NT = ops.NT;
     batchstart = 0:NT:NT * Nbatch;
-    Nfilt = size(rez.W, 2);
+    Nfilt = length(unique(st3(:,4))); % size(rez.W, 2);
     nt0 = ops.nt0;
     Nchan = ops.Nchan;
     RGBA_colors = [rand(Nfilt, 3) 0.7*ones(Nfilt, 1)];
@@ -32,9 +32,9 @@ function plot_templates_on_raw_data_fast(rez, st3)
         % next plot each template for each cluster, WU(:,:,j), on top of the raw data at each cluster's corresponding spike time
         % use only valid channel locations and scale the color by cluster ID, along RGB
         spike_times_in_batch_for_each_cluster = cell(Nfilt, 1);
-        for jfilt = 5:10 % only show first four clusters %Nfilt
+        for jfilt = 1:Nfilt
             % WU(:, :, j) = rez.mu(j) * squeeze(rez.W(:, j, :)) * squeeze(rez.U(:, j, :))';
-            spike_times_in_batch_for_this_cluster = st3(st3(:, 2) == jfilt & st3(:, 1) > batchstart(ibatch) & st3(:, 1) < batchstart(ibatch+1), 1);
+            spike_times_in_batch_for_this_cluster = st3(st3(:, 4) == jfilt & st3(:, 1) > batchstart(ibatch) & st3(:, 1) < batchstart(ibatch+1), 1);
             Nspikes = length(spike_times_in_batch_for_this_cluster);
             if Nspikes == 0
                 continue

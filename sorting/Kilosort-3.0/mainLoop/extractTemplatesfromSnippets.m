@@ -31,7 +31,8 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
         dataRAW = dataRAW / ops.scaleproc;
 
         % find isolated spikes from each batch
-        [row, col] = isolated_peaks_buffered_czuba(-abs(dataRAW), ops, ibatch);
+        % [row, col] = isolated_peaks_multithreshold(-abs(dataRAW), ops, ibatch);
+        [row, col] = isolated_peaks_new(dataRAW, ops);
 
         % for each peak, get the voltage snippet from that channel
         clips = get_SpikeSample(dataRAW, row, col, ops, 0);
@@ -71,7 +72,8 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
     dd_windowed = dd .* tukey_window;
     dd_cpu = double(gather(dd_windowed));
     % PCA is computed on the windowed data
-    [U, ~, ~] = svdecon(dd_cpu); % the PCs are just the left singular vectors of the waveforms
+    [U, ~, ~] = svdecon(dd); % the PCs are just the left singular vectors of the waveforms
+    % [U, ~, ~] = svdecon(dd_cpu); % the PCs are just the left singular vectors of the waveforms
     % if ops.fig == 1 % PLOTTING
     %     figure(4); hold on;
     %     for i = 1:nPCs
@@ -350,7 +352,7 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
     if use_kmeans
         wTEMP = dd(:, randperm(size(dd, 2), nPCs)); % removing this line will cause KS to not ...
         % find spikes sometimes... ???
-        wTEMP(:, 1:nPCs) = spikes(:, best_CC_idxs(1:nPCs));
+        % wTEMP(:, 1:nPCs) = spikes(:, best_CC_idxs(1:nPCs));
     else
         wTEMP(:, 1:nPCs) = dd(:, idx(best_CC_idxs(1:nPCs)));
     end
@@ -378,6 +380,7 @@ function [wTEMP, wPCA] = extractTemplatesfromSnippets(rez, nPCs)
     end
 
     % use k-means isolated spikes for correlation calculation and averaging to ignore outlier spikes
+    use_kmeans = false;
     if use_kmeans
 
         for i = 1:10

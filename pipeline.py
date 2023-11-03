@@ -217,20 +217,31 @@ if not "remove_channel_delays" in config["Session"]:
     config["Session"]["remove_channel_delays"] = [False] * len(config["Session"]["myo_chan_list"])
 
 # input assertions
-assert config["num_KS_jobs"] >= 1, "Number of parallel jobs must be greater than or equal to 1"
+assert (
+    config["num_KS_jobs"] >= 1
+), "Check config file. Number of parallel jobs must be greater than or equal to 1"
 assert config["recordings"][0] == "all" or all(
     [(item == round(item) >= 1 and isinstance(item, (int, float))) for item in config["recordings"]]
-), "'recordings' field must be a list of positive integers, or 'all' as first element"
+), "Check config file. 'recordings' field must be a list of positive integers, or 'all' as first element"
+assert len(config["GPU_to_use"]) >= 1, "At least one GPU index must be specified, starting at 0"
 assert all(
     [(item >= 0 and isinstance(item, int)) for item in config["GPU_to_use"]]
-), "'GPU_to_use' field must be greater than or equal to 0"
+), "Check config file. 'GPU_to_use' field must be greater than or equal to 0"
 assert config["num_neuropixels"] >= 0, "Number of neuropixels must be greater than or equal to 0"
 assert (
     config["Sorting"]["num_KS_components"] >= 1
-), "Number of KS components must be greater than or equal to 1"
+), "Check config file. Number of KS components must be greater than or equal to 1"
 assert (
     config["myo_data_sampling_rate"] >= 1
-), "Myomatrix sampling rate must be greater than or equal to 1"
+), "Check config file. Myomatrix sampling rate must be greater than or equal to 1"
+if config["num_KS_jobs"] > 1:
+    # ensure proper configuration for parallel jobs
+    assert config["num_KS_jobs"] <= len(
+        config["GPU_to_use"]
+    ), "Check config file. Number of parallel KS jobs must be less than or equal to number of GPUs"
+    assert (
+        config["Sorting"]["do_KS_param_gridsearch"] == 1
+    ), "Check config file. Number of parallel KS jobs must be greater than 1 if KS param gridsearch is enabled"
 
 
 # use -d option to specify which sort folder to post-process
@@ -478,7 +489,7 @@ if neuro_sort:
                 "-nosplash",
                 "-nodesktop",
                 "-r",
-                f"addpath(genpath('{path_to_add}')); Kilosort_run_czuba",
+                f"addpath(genpath('{path_to_add}')); Kilosort_run",
             ],
             check=True,
         )
@@ -512,7 +523,7 @@ if neuro_post:
 if myo_config:
     if os.name == "posix":  # detect Unix
         subprocess.run(
-            f"nano {config['script_dir']}/sorting/Kilosort_run_myo_3_czuba.m",
+            f"nano {config['script_dir']}/sorting/Kilosort_run_myo_3.m",
             shell=True,
             check=True,
         )
@@ -525,7 +536,7 @@ if myo_config:
         print('Configuration for "-myo_post" done.')
     elif os.name == "nt":  # detect Windows
         subprocess.run(
-            f"notepad {config['script_dir']}/sorting/Kilosort_run_myo_3_czuba.m",
+            f"notepad {config['script_dir']}/sorting/Kilosort_run_myo_3.m",
             shell=True,
             check=True,
         )
@@ -606,13 +617,6 @@ if myo_sort:
         worker_ids = np.arange(config["num_KS_jobs"])
         # create new folders if running in parallel
         if config["num_KS_jobs"] > 1:
-            # ensure proper configuration for parallel jobs
-            assert config["num_KS_jobs"] <= len(
-                config["GPU_to_use"]
-            ), "Number of parallel jobs must be less than or equal to number of GPUs"
-            assert (
-                config["Sorting"]["do_KS_param_gridsearch"] == 1
-            ), "Parallel jobs can only be used when do_KS_param_gridsearch is set to True"
             # create new folder for each parallel job to store results temporarily
             for i in worker_ids:
                 # create new folder for each parallel job
@@ -655,9 +659,9 @@ if myo_sort:
                             print("ERROR: KS params must be a dictionary or a string.")
                             raise TypeError
                         if config["Sorting"]["do_KS_param_gridsearch"] == 1:
-                            command_str = f"Kilosort_run_myo_3_czuba(struct({passable_params}),{worker_id},'{str(worker_dir)}');"
+                            command_str = f"Kilosort_run_myo_3(struct({passable_params}),{worker_id},'{str(worker_dir)}');"
                         else:
-                            command_str = f"Kilosort_run_myo_3_czuba('{passable_params}',{worker_id},'{str(worker_dir)}');"
+                            command_str = f"Kilosort_run_myo_3('{passable_params}',{worker_id},'{str(worker_dir)}');"
                         subprocess.run(
                             [
                                 "matlab",
@@ -692,6 +696,14 @@ if myo_sort:
                         goodChans = np.setdiff1d(np.arange(1, 17), brokenChan)
                         goodChans_str = ",".join(str(i) for i in goodChans)
 
+                        ## get name of git branch
+                        git_branch = subprocess.run(
+                            ["git", "branch", "--show-current"],
+                            cwd=config["script_dir"],
+                            capture_output=True,
+                            text=True,
+                        ).stdout.strip()
+
                         # remove spaces and single quoutes from passable_params string
                         time_stamp_us = datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
                         filename_friendly_params = passable_params.replace("'", "").replace(" ", "")
@@ -702,6 +714,7 @@ if myo_sort:
                             f"_chans-{goodChans_str}"
                             f"_{num_good_units}-good-of-{num_KS_clusters}-total"
                             f"_{filename_friendly_params}"
+                            f"_{git_branch}"
                         )
                         # remove trailing underscore if present
                         final_filename = (
@@ -903,3 +916,6 @@ print(
         f"{strfdelta(time_elapsed, '{hours} hours, {minutes} minutes, {seconds} seconds')}"
     )
 )
+
+# reset terminal mode to avoid terminal not printing user input after program exits
+subprocess.run(["stty", "sane"], check=True)

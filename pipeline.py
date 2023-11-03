@@ -697,12 +697,15 @@ if myo_sort:
                         goodChans_str = ",".join(str(i) for i in goodChans)
 
                         ## get name of git branch
-                        git_branch = subprocess.run(
-                            ["git", "branch", "--show-current"],
+                        git_branches = subprocess.run(
+                            ["git", "branch"],
                             cwd=config["script_dir"],
                             capture_output=True,
                             text=True,
                         ).stdout.strip()
+                        git_branch = [b for b in git_branches.split("\n") if b.startswith("*")][0][
+                            2:
+                        ]
 
                         # remove spaces and single quoutes from passable_params string
                         time_stamp_us = datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")

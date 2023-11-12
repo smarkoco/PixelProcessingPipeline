@@ -145,7 +145,7 @@ function [rez, st3, fWpc] = trackAndSort(rez, varargin)
         % waveforms assigned to each cluster (dWU0),
         % and probably a few more things I forget about
         [st0, id0, x0, featW, dWU0, drez, nsp0, featPC, vexp, errmsg] = ...
-            mexMPnu8_pcTight(Params, dataRAW, single(U), single(W), single(mu), iC - 1, iW - 1, UtU, iList - 1, ...
+            mexMPnu8_orig(Params, dataRAW, single(U), single(W), single(mu), iC - 1, iW - 1, UtU, iList - 1, ...
             wPCA);
         % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
         % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -163,7 +163,8 @@ function [rez, st3, fWpc] = trackAndSort(rez, varargin)
         % since some clusters have different number of spikes, we need to apply the
         % exp(pm) factor several times, and fexp is the resulting update factor
         % for each template
-        dWU1 = dWU1 + dWU0;
+        dWU1_temp = dWU1;
+        dWU1 = dWU1_temp + dWU0;
         nsp = nsp + nsp0;
 
         % nsp just gets updated according to the fixed factor p1

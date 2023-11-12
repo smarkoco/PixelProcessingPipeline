@@ -44,12 +44,11 @@ function rez = Kilosort_run_myo_3_czuba(ops_input_params, worker_id, worker_dir)
     ops.ntbuff = 1024; %ceil(bufferSec * ops.fs / 64) * 64; %  ceil(batchSec/4*ops.fs/64)*64; % (def=64)
     ops.NT = 2048 * 32 + ops.ntbuff; %ceil(batchSec * ops.fs / 32) * 32; % convert to 32 count increments of samples
     ops.sigmaMask = Inf; % we don't want a distance-dependant decay
-    ops.nPCs = double(num_KS_components); % how many PCs to project the spikes into (also used as number of template prototypes)
-    ops.nTEMP = ops.nPCs; % number of templates to use for spike detection
-    ops.nEig = ops.nPCs; % rank of svd for templates, % keep same as nPCs to avoid error
+    ops.nEig = double(num_KS_components); % rank of svd for templates, % keep same as nPCs to avoid error
+    ops.nPCs = 6; %; % how many PCs to project the spikes into (also used as number of template prototypes)
     ops.NchanTOT = double(max(num_chans - length(brokenChan), ops.nEig));
     ops.Th = [5 2]; % threshold crossings for pre-clustering (in PCA projection space)
-    ops.spkTh = [-2, -6, -10]; % spike threshold in standard deviations (-6 default) (used in isolated_peaks_new/buffered and spikedetector3PC.cu)
+    ops.spkTh = [-6]; % spike threshold in standard deviations (-6 default) (used in isolated_peaks_new/buffered and spikedetector3PC.cu)
     ops.nfilt_factor = 12; % max number of clusters per good channel in a batch (even temporary ones)
     ops.nblocks = 0;
     ops.nt0min = ceil(ops.nt0 / 2); % peak of template match will be this many points away from beginning

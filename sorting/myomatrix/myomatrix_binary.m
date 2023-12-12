@@ -233,17 +233,17 @@ if isa(remove_bad_myo_chans(1), 'logical') || isa(remove_bad_myo_chans, 'char')
         disp('Not removing any broken/noisy channels, because remove_bad_myo_chans is false')
         % disp(['Keeping channel list: ' num2str(chanList)])
     elseif remove_bad_myo_chans(1) == true || isa(remove_bad_myo_chans, 'char')
-        data(:, brokenChan) = [];
-        chanList(brokenChan) = [];
+        data(:, brokenChan) = 0;
+        % chanList(brokenChan) = [];
         disp(['Just removed automatically detected broken/noisy channels: ' num2str(brokenChan')])
-        disp(['New channel list is: ' num2str(chanList)])
+        disp(['New channel list is: ' num2str(setdiff(chanList, brokenChan))])
     end
 elseif isa(remove_bad_myo_chans, 'integer')
     brokenChan = remove_bad_myo_chans; % overwrite brokenChan with manually provided list
-    data(:, brokenChan) = [];
-    chanList(brokenChan) = [];
+    data(:, brokenChan) = 0;
+    % chanList(brokenChan) = [];
     disp(['Just removed manually provided broken/noisy channels: ' num2str(brokenChan)])
-    disp(['New channel list is: ' num2str(chanList)])
+    disp(['New channel list is: ' num2str(setdiff(chanList, brokenChan))])
 else
     error('remove_bad_myo_chans must be a boolean, string with SNR rejection method, or an integer list of channels to remove')
 end
@@ -262,9 +262,9 @@ if ~isempty(brokenChan) && remove_bad_myo_chans(1) ~= false
     %     xcoords(brokenChan) = [];
     %     ycoords(brokenChan) = [];
     % else
-    numDummy = max(0, num_KS_components - size(data, 2)); % make sure it's not negative
-    dummyData = zeros(size(data, 1), numDummy, 'int16');
-    data = [data dummyData]; % add dummy channels to make size larger than num_KS_components
+    numDummy = length(brokenChan);
+    % dummyData = zeros(size(data, 1), numDummy, 'int16');
+    % data = [data dummyData]; % add dummy channels to make size larger than num_KS_components
     chanMap = 1:size(data, 2);
     chanMap0ind = chanMap - 1;
     connected = true(size(data, 2), 1);
@@ -294,7 +294,7 @@ mean_data = mean(data, 1);
 [b, a] = butter(4, myo_data_passband / (myo_data_sampling_rate / 2), 'bandpass');
 intervals = round(linspace(1, size(data, 1), round(size(data, 1) / (myo_data_sampling_rate * 5))));
 if numDummy > 0
-    chanIdxsToFilter = 1:num_KS_components-numDummy;
+    chanIdxsToFilter = setdiff(chanList, brokenChan);
 else
     chanIdxsToFilter = 1:size(data, 2);
 end

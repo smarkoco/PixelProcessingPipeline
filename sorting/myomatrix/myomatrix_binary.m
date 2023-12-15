@@ -236,14 +236,17 @@ if isa(remove_bad_myo_chans(1), 'logical') || isa(remove_bad_myo_chans, 'char')
         data(:, brokenChan) = 0;
         % chanList(brokenChan) = [];
         disp(['Just removed automatically detected broken/noisy channels: ' num2str(brokenChan')])
-        disp(['New channel list is: ' num2str(setdiff(chanList, brokenChan))])
+        disp(['New channel list is: ' num2str(chanList(~brokenChan))] )
     end
 elseif isa(remove_bad_myo_chans, 'integer')
+    zero_arr = zeros(1, length(remove_bad_myo_chans));
+    zero_arr(remove_bad_myo_chans) = 1;
+    remove_bad_myo_chans = logical(zero_arr);
     brokenChan = remove_bad_myo_chans; % overwrite brokenChan with manually provided list
     data(:, brokenChan) = 0;
     % chanList(brokenChan) = [];
     disp(['Just removed manually provided broken/noisy channels: ' num2str(brokenChan)])
-    disp(['New channel list is: ' num2str(setdiff(chanList, brokenChan))])
+    disp(['New channel list is: ' num2str(chanList(~brokenChan))] )
 else
     error('remove_bad_myo_chans must be a boolean, string with SNR rejection method, or an integer list of channels to remove')
 end
@@ -294,7 +297,7 @@ mean_data = mean(data, 1);
 [b, a] = butter(4, myo_data_passband / (myo_data_sampling_rate / 2), 'bandpass');
 intervals = round(linspace(1, size(data, 1), round(size(data, 1) / (myo_data_sampling_rate * 5))));
 if numDummy > 0
-    chanIdxsToFilter = setdiff(chanList, brokenChan);
+    chanIdxsToFilter = chanList(~brokenChan);
 else
     chanIdxsToFilter = 1:size(data, 2);
 end

@@ -15,7 +15,7 @@ from ibllib.ephys.spikes import ks2_to_alf
 from ruamel.yaml import YAML
 
 from pipeline_utils import create_config, extract_LFP, extract_sync, find
-from registration.registration import registration as registration_function
+# from registration.registration import registration as registration_function
 from sorting.Kilosort_gridsearch_config import get_KS_params_grid
 
 # calculate time taken to run each pipeline call
@@ -714,7 +714,7 @@ if myo_sort:
                             f"sorted{str(myomatrix)}"
                             f"_{time_stamp_us}"
                             f"_rec-{recordings_str}"
-                            f"_chans-{goodChans_str}"
+                            # f"_chans-{goodChans_str}"
                             f"_{num_good_units}-good-of-{num_KS_clusters}-total"
                             f"_{filename_friendly_params}"
                             f"_{git_branch}"
